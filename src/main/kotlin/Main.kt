@@ -1,37 +1,29 @@
 import config.KafkaConfig
 import org.apache.kafka.streams.StreamsBuilder
-import utils.AdminUtils
-import utils.StreamsUtils
 
 fun main() {
   val config = KafkaConfig()
 
   try {
-    val adminClient = AdminUtils.adminClient(config)
+      val adminClient = AdminClient(config)
 
-    if(!AdminUtils.topicExists(config.topicOne, adminClient)) {
-      AdminUtils.createTopic(config.topicOne, 1, 1, adminClient)
-    }
+      if (!adminClient.topicExists(config.topicOne)) {
+          adminClient.createTopic(config.topicOne, 1, 1)
+      }
 
-    if(!AdminUtils.topicExists(config.topicTwo, adminClient)) {
-      AdminUtils.createTopic(config.topicTwo, 1, 1, adminClient)
-    }
+      if (!adminClient.topicExists(config.topicTwo)) {
+            adminClient.createTopic(config.topicTwo, 1, 1)
+      }
 
-   val builder = StreamsBuilder()
+      adminClient.close()
 
-   val stream = builder.stream<String, String>(config.topicOne)
+      val builder = StreamsBuilder()
 
-   // this is where you will perform your stream aggregation. Research on how to accomplish this. Here I am simply capitalizing the values of topic one and sending them to topic two
-   val processedStreams = stream.mapValues { value -> value.uppercase() }
+      builder.stream<String, String>(config.topicOne)
+          .mapValues { value -> value.uppercase() }
+          .to(config.topicTwo)
 
-   // send values to topic two
-   processedStreams.to(config.topicTwo)
-
-   val streams = StreamsUtils.createStreams(config, builder)
-
-   StreamsUtils.startStreams(streams)
-
-   AdminUtils.close(adminClient)
+     Streams(config, builder).start()
 
   } catch (e: Exception) {
     println("Error occurred: ${e.message}")
